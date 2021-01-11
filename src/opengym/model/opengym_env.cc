@@ -69,6 +69,8 @@ OpenGymEnv::SetOpenGymInterface(Ptr<OpenGymInterface> openGymInterface)
 {
   NS_LOG_FUNCTION (this);
   m_openGymInterface = openGymInterface;
+  //set env controller
+  env_controller=m_openGymInterface->inter_controller;
   openGymInterface->SetGetActionSpaceCb( MakeCallback (&OpenGymEnv::GetActionSpace, this) );
   openGymInterface->SetGetObservationSpaceCb( MakeCallback (&OpenGymEnv::GetObservationSpace, this) );
   openGymInterface->SetGetGameOverCb( MakeCallback (&OpenGymEnv::GetGameOver, this) );
@@ -76,6 +78,7 @@ OpenGymEnv::SetOpenGymInterface(Ptr<OpenGymInterface> openGymInterface)
   openGymInterface->SetGetRewardCb( MakeCallback (&OpenGymEnv::GetReward, this) );
   openGymInterface->SetGetExtraInfoCb( MakeCallback (&OpenGymEnv::GetExtraInfo, this) );
   openGymInterface->SetExecuteActionsCb( MakeCallback (&OpenGymEnv::ExecuteActions, this) );
+  
 }
 
 void

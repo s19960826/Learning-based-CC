@@ -32,14 +32,17 @@
 #include "ns3/vector.h"
 #include "ns3/ipv6-address-generator.h"
 
+#include "ns3/send-net-device.h"
+#include "ns3/recv-net-device.h"
+
 namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("PointToPointDumbbellHelper");
 
 PointToPointDumbbellHelper::PointToPointDumbbellHelper (uint32_t nLeftLeaf,
-                                                        PointToPointHelper leftHelper,
+                                                        SendHelper leftHelper,
                                                         uint32_t nRightLeaf,
-                                                        PointToPointHelper rightHelper,
+                                                        RecvHelper rightHelper,
                                                         PointToPointHelper bottleneckHelper)
 {
   // Create the bottleneck routers

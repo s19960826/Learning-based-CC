@@ -23,6 +23,8 @@ class TcpEventBased(Tcp):
         super(TcpEventBased, self).__init__()
 
     def get_action(self, obs, reward, done, info):
+
+        """
         # unique socket ID
         socketUuid = obs[0]
         # TCP env type: event-based = 0 / time-based = 1
@@ -78,6 +80,22 @@ class TcpEventBased(Tcp):
         #  ECN_ECE_RCVD,
         #  ECN_CWR_SENT
         ecnState = obs[14]
+        """
+        
+        socketUuid=obs[0]
+        envType=obs[1]
+        ssThresh = obs[2]
+        cWnd = obs[3]
+        segmentSize=obs[4]
+        #segmentsAcked =obs[5]
+        bytesInFlight = obs[5]
+        rtt=obs[6]
+        #congestionState= obs[8]
+        #congestionEvent=obs[9]
+        #ecnState=obs[10]
+        #avgSend=obs[11]
+        #avgRecv=obs[12]
+        avgDelay = obs[7]
 
         # compute new values
         new_cWnd = 10 * segmentSize
@@ -124,9 +142,9 @@ class TcpTimeBased(Tcp):
         # avgInterTx
         avgInterTx = obs[13]
         # avgInterRx
-        avgInterRx = obs[14]
+        #avgInterRx = obs[14]
         # throughput
-        throughput = obs[15]
+        #throughput = obs[15]
 
         # compute new values
         new_cWnd = 10 * segmentSize

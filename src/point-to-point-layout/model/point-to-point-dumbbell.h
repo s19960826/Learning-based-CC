@@ -30,6 +30,9 @@
 #include "ipv4-interface-container.h"
 #include "ipv6-interface-container.h"
 
+#include "send-helper.h"
+#include "recv-helper.h"
+
 namespace ns3 {
 
 /**
@@ -62,9 +65,9 @@ public:
    *                         the bottleneck link
    */
   PointToPointDumbbellHelper (uint32_t nLeftLeaf,
-                              PointToPointHelper leftHelper,
+                              SendHelper leftHelper,
                               uint32_t nRightLeaf,
-                              PointToPointHelper rightHelper,
+                              RecvHelper rightHelper,
                               PointToPointHelper bottleneckHelper);
 
   ~PointToPointDumbbellHelper ();
@@ -166,13 +169,15 @@ public:
    */
   void      BoundingBox (double ulx, double uly, double lrx, double lry);
 
+  NetDeviceContainer     m_routerDevices;       //!< Routers NetDevices
+
 private:
   NodeContainer          m_leftLeaf;            //!< Left Leaf nodes
   NetDeviceContainer     m_leftLeafDevices;     //!< Left Leaf NetDevices
   NodeContainer          m_rightLeaf;           //!< Right Leaf nodes
   NetDeviceContainer     m_rightLeafDevices;    //!< Right Leaf NetDevices
   NodeContainer          m_routers;             //!< Routers
-  NetDeviceContainer     m_routerDevices;       //!< Routers NetDevices
+  //NetDeviceContainer     m_routerDevices;       //!< Routers NetDevices
   NetDeviceContainer     m_leftRouterDevices;     //!< Left router NetDevices
   NetDeviceContainer     m_rightRouterDevices;    //!< Right router NetDevices
   Ipv4InterfaceContainer m_leftLeafInterfaces;    //!< Left Leaf interfaces (IPv4)

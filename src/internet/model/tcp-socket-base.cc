@@ -636,6 +636,9 @@ TcpSocketBase::Connect (const Address & address)
         }
       InetSocketAddress transport = InetSocketAddress::ConvertFrom (address);
       m_endPoint->SetPeer (transport.GetIpv4 (), transport.GetPort ());
+
+      m_tcb->m_flowtype = (transport.GetIpv4 ()).Get();
+    
       SetIpTos (transport.GetTos ());
       m_endPoint6 = nullptr;
 
@@ -3361,6 +3364,9 @@ TcpSocketBase::EstimateRtt (const TcpHeader& tcpHeader)
       // RFC 6298, clause 2.4
       m_rto = Max (m_rtt->GetEstimate () + Max (m_clockGranularity, m_rtt->GetVariation () * 4), m_minRto);
       m_tcb->m_lastRtt = m_rtt->GetEstimate ();
+      Time tmp = m_rtt->GetEstimate ();
+      m_tcb->MRTT(Now().GetMicroSeconds(), (tmp).GetMicroSeconds());
+
       m_tcb->m_minRtt = std::min (m_tcb->m_lastRtt.Get (), m_tcb->m_minRtt);
       NS_LOG_INFO (this << m_tcb->m_lastRtt << m_tcb->m_minRtt);
     }

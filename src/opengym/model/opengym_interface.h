@@ -24,6 +24,8 @@
 
 #include "ns3/object.h"
 #include <zmq.hpp>
+#include <vector>
+#include "ns3/control-decider.h"
 
 namespace ns3 {
 
@@ -34,6 +36,11 @@ class OpenGymEnv;
 class OpenGymInterface : public Object
 {
 public:
+
+  //set interface controller
+  void SetInterController (Ptr<ControlDecider> controller);
+  Ptr<ControlDecider> inter_controller;
+
   static Ptr<OpenGymInterface> Get (uint32_t port=5555);
 
   OpenGymInterface (uint32_t port=5555);

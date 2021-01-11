@@ -48,6 +48,12 @@ OpenGymInterface::GetTypeId (void)
   return tid;
 }
 
+void
+OpenGymInterface::SetInterController(Ptr<ControlDecider> controller)
+{
+  inter_controller=controller;
+}
+
 Ptr<OpenGymInterface>
 OpenGymInterface::Get (uint32_t port)
 {
@@ -344,9 +350,12 @@ OpenGymInterface::GetObservation()
 {
   NS_LOG_FUNCTION (this);
   Ptr<OpenGymDataContainer>  obs;
+  //Ptr<OpenGymBoxContainer<uint32_t> > obs;
   if (!m_obsCb.IsNull())
   {
     obs = m_obsCb();
+    //Ptr<OpenGymBoxContainer<uint32_t> > m_obs = CreateObject<OpenGymBoxContainer<uint32_t> >(m_obsCb());
+    //std::cout << "this is" << box->GetValue(14) << std::endl;
   }
   return obs;
 }
@@ -391,7 +400,6 @@ void
 OpenGymInterface::Notify(Ptr<OpenGymEnv> entity)
 {
   NS_LOG_FUNCTION (this);
-
   SetGetGameOverCb( MakeCallback (&OpenGymEnv::GetGameOver, entity) );
   SetGetObservationCb( MakeCallback (&OpenGymEnv::GetObservation, entity) );
   SetGetRewardCb( MakeCallback (&OpenGymEnv::GetReward, entity) );

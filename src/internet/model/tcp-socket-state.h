@@ -130,6 +130,12 @@ public:
   uint32_t               m_initialCWnd      {0}; //!< Initial cWnd value
   uint32_t               m_initialSsThresh  {0}; //!< Initial Slow Start Threshold value
 
+  //flow type
+  uint32_t m_flowtype {0};
+  void MRTT(uint64_t m_time, uint64_t m_rtt);
+  std::vector<uint64_t> m_Rtt = {0};
+  std::vector<uint64_t> m_RttTime = {0};
+
   // Segment
   uint32_t               m_segmentSize   {0}; //!< Segment size
   SequenceNumber32       m_lastAckedSeq  {0}; //!< Last sequence ACKed

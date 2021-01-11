@@ -168,7 +168,7 @@ bool
 TcpGymEnv::GetGameOver()
 {
   m_isGameOver = false;
-  bool test = false;
+  bool test = false;//Ture
   static float stepCounter = 0.0;
   stepCounter += 1;
   if (stepCounter == 10 && test) {
@@ -278,7 +278,7 @@ TcpEventGymEnv::GetObservationSpace()
   // congetsion algorithm (CA) state
   // CA event
   // ECN state
-  uint32_t parameterNum = 15;
+  uint32_t parameterNum = 14;
   float low = 0.0;
   float high = 1000000000.0;
   std::vector<uint32_t> shape = {parameterNum,};
@@ -295,11 +295,14 @@ Collect observations
 Ptr<OpenGymDataContainer>
 TcpEventGymEnv::GetObservation()
 {
-  uint32_t parameterNum = 15;
+  uint32_t parameterNum = 14;
   std::vector<uint32_t> shape = {parameterNum,};
 
   Ptr<OpenGymBoxContainer<uint64_t> > box = CreateObject<OpenGymBoxContainer<uint64_t> >(shape);
+  //Ptr<OpenGymBoxContainer<float> > box = CreateObject<OpenGymBoxContainer<float> >(shape);
 
+
+/*
   box->AddValue(m_socketUuid);
   box->AddValue(0);
   box->AddValue(Simulator::Now().GetMicroSeconds ());
@@ -315,6 +318,46 @@ TcpEventGymEnv::GetObservation()
   box->AddValue(m_tcb->m_congState);
   box->AddValue(m_event);
   box->AddValue(m_tcb->m_ecnState);
+ */
+
+  double avgThroughput = env_controller->AvgThroughput(m_tcb->m_flowtype, m_rtt.GetMicroSeconds (), Now().GetMicroSeconds());
+  double avgLostRate = env_controller->LostRate(m_tcb->m_flowtype, m_rtt.GetMicroSeconds (), Now().GetMicroSeconds());
+  double avgRTT = env_controller->AvgRTT(m_tcb->m_flowtype, m_tcb->m_Rtt, m_tcb->m_RttTime, m_rtt.GetMicroSeconds (), Now().GetMicroSeconds());
+
+  //env_controller->LostRate(m_rtt.GetMicroSeconds (),Now().GetMicroSeconds());
+
+  box->AddValue(m_socketUuid);
+  box->AddValue(0);
+  box->AddValue(m_tcb->m_ssThresh);
+  box->AddValue(m_tcb->m_cWnd);
+  box->AddValue(m_tcb->m_segmentSize);
+  //box->AddValue(m_segmentsAcked);
+  box->AddValue(m_bytesInFlight);
+  box->AddValue(m_rtt.GetMicroSeconds ());
+  box->AddValue(m_tcb->m_minRtt.GetMicroSeconds ());
+  //box->AddValue(m_tcb->m_congState);
+  //box->AddValue(m_event);
+  //box->AddValue(m_tcb->m_ecnState);
+  //box->AddValue(env_controller->avgSend);
+  //box->AddValue(env_controller->avgRecv);
+  //box->AddValue(env_controller->avgDelay);
+  //box->AddValue(env_controller->avgThroughput);
+  //box->AddValue(env_controller->lostRate);
+  //box->AddValue((Now().GetSeconds())*1000000);
+  box->AddValue(10);
+  box->AddValue(10);
+  box->AddValue(10);
+  box->AddValue(avgThroughput);
+  box->AddValue(avgLostRate);
+  box->AddValue(avgRTT);
+
+  //std::vector <int>  u=env_controller->m_sendTime;
+  //std::cout << "this is utility: " << avgThroughput << std::endl;
+  //std::cout << u.back() << std::endl;
+  //std::cout <<"this is rtt: " << m_rtt.GetMicroSeconds () <<std::endl;
+
+  //env_controller->AvgTime(m_rtt.GetMicroSeconds ());
+  //std::cout << "this is time: " << Now().GetSeconds() << std::endl;
 
   // Print data
   NS_LOG_INFO ("MyGetObservation: " << box);
@@ -354,6 +397,7 @@ TcpEventGymEnv::IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
 {
   NS_LOG_FUNCTION (this);
   // pkt was acked, so reward
+  
   m_envReward = m_reward;
 
   NS_LOG_INFO(Simulator::Now() << " Node: " << m_nodeId << " IncreaseWindow, SegmentsAcked: " << segmentsAcked);

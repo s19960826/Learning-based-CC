@@ -50,6 +50,16 @@
 #include "ns3/opengym-module.h"
 #include "tcp-rl.h"
 
+#include <ctime>
+#include <sstream>
+#include "ns3/sender.h"
+#include "ns3/receiver.h"
+#include "ns3/time-stamp-tag.h"
+#include <vector>
+
+#include "ns3/control-decider.h"
+#include "ns3/multiple-flows.h"
+
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("TcpVariantsComparison");
@@ -62,6 +72,13 @@ CountRxPkts(uint32_t sinkId, Ptr<const Packet> packet, const Address & srcAddr)
   rxPkts[sinkId]++;
 }
 
+static int dropCount=0;
+void RxDrop(Ptr<const Packet>p)
+{
+  dropCount=dropCount+1;
+  std::cout << "dropped packets are:" << std::endl;
+}
+
 static void
 PrintRxCount()
 {
@@ -72,28 +89,36 @@ PrintRxCount()
   }
 }
 
+static void
+CwndChange (uint32_t oldCwnd, uint32_t newCwnd)
+{
+  NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "\t" << newCwnd);
+}
+
 
 int main (int argc, char *argv[])
 {
   uint32_t openGymPort = 5555;
   double tcpEnvTimeStep = 0.1;
 
-  uint32_t nLeaf = 1;
+  uint32_t nLeaf = 100;
   std::string transport_prot = "TcpRl";
   double error_p = 0.0;
-  std::string bottleneck_bandwidth = "2Mbps";
-  std::string bottleneck_delay = "0.01ms";
-  std::string access_bandwidth = "10Mbps";
-  std::string access_delay = "20ms";
+  std::string bottleneck_bandwidth = "10Mbps";
+  std::string bottleneck_delay = "0.001ms";//0.01ms
+  std::string access_bandwidth = "100Mbps";
+  std::string access_delay = "2.5ms";
   std::string prefix_file_name = "TcpVariantsComparison";
   uint64_t data_mbytes = 0;
   uint32_t mtu_bytes = 400;
-  double duration = 10.0;
+  double duration = 60.0;
   uint32_t run = 0;
   bool flow_monitor = false;
   bool sack = true;
   std::string queue_disc_type = "ns3::PfifoFastQueueDisc";
   std::string recovery = "ns3::TcpClassicRecovery";
+
+  dropCount=0;
 
   CommandLine cmd;
   // required parameters for OpenGym interface
@@ -117,10 +142,16 @@ int main (int argc, char *argv[])
   cmd.AddValue ("duration", "Time to allow flows to run in seconds", duration);
   cmd.AddValue ("run", "Run index (for setting repeatable seeds)", run);
   cmd.AddValue ("flow_monitor", "Enable flow monitor", flow_monitor);
-  cmd.AddValue ("queue_disc_type", "Queue disc type for gateway (e.g. ns3::CoDelQueueDisc)", queue_disc_type);
+  //cmd.AddValue ("queue_disc_type", "Queue disc type for gateway (e.g. ns3::CoDelQueueDisc)", queue_disc_type);
   cmd.AddValue ("sack", "Enable or disable SACK option", sack);
   cmd.AddValue ("recovery", "Recovery algorithm type to use (e.g., ns3::TcpPrrRecovery", recovery);
   cmd.Parse (argc, argv);
+
+  std::string cdfFileName = "./scratch/rl-tcp/DCTCP_CDF.txt";
+  NS_LOG_INFO("Initialize CDF table");
+  struct cdf_table *cdfTable = new cdf_table();
+  MultipleFlows::init_cdf(cdfTable);
+  MultipleFlows::load_cdf(cdfTable, cdfFileName.c_str());
 
   transport_prot = std::string ("ns3::") + transport_prot;
 
@@ -138,6 +169,9 @@ int main (int argc, char *argv[])
   NS_LOG_UNCOND("--seed: " << run);
   NS_LOG_UNCOND("--Tcp version: " << transport_prot);
 
+  //create global class controller
+  Ptr<ControlDecider> m_controller= CreateObject<ControlDecider>();
+
 
   // OpenGym Env --- has to be created before any other thing
   Ptr<OpenGymInterface> openGymInterface;
@@ -153,6 +187,10 @@ int main (int argc, char *argv[])
     openGymInterface = OpenGymInterface::Get(openGymPort);
     Config::SetDefault ("ns3::TcpRlTimeBased::StepTime", TimeValue (Seconds(tcpEnvTimeStep))); // Time step of TCP env
   }
+
+  //set opengyminterface controller
+  openGymInterface->SetInterController(m_controller);
+
 
   // Calculate the ADU size
   Header* temp_header = new Ipv4Header ();
@@ -171,8 +209,8 @@ int main (int argc, char *argv[])
   double stop_time = start_time + duration;
 
   // 4 MB of TCP buffer
-  Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (1 << 21));
-  Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (1 << 21));
+  Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (40000000));
+  Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (40000000));
   Config::SetDefault ("ns3::TcpSocketBase::Sack", BooleanValue (sack));
   Config::SetDefault ("ns3::TcpSocket::DelAckCount", UintegerValue (2));
 
@@ -208,14 +246,60 @@ int main (int argc, char *argv[])
   bottleNeckLink.SetDeviceAttribute  ("DataRate", StringValue (bottleneck_bandwidth));
   bottleNeckLink.SetChannelAttribute ("Delay", StringValue (bottleneck_delay));
   //bottleNeckLink.SetDeviceAttribute  ("ReceiveErrorModel", PointerValue (&error_model));
-
+/*
   PointToPointHelper pointToPointLeaf;
   pointToPointLeaf.SetDeviceAttribute  ("DataRate", StringValue (access_bandwidth));
   pointToPointLeaf.SetChannelAttribute ("Delay", StringValue (access_delay));
+*/
 
-  PointToPointDumbbellHelper d (nLeaf, pointToPointLeaf,
-                                nLeaf, pointToPointLeaf,
+  SendHelper leftlink;
+  leftlink.SetDeviceAttribute  ("DataRate", StringValue (access_bandwidth));
+  leftlink.SetChannelAttribute ("Delay", StringValue (access_delay));
+  //set device controller
+  leftlink.SetHelpController(m_controller);
+
+  RecvHelper rightlink;
+  rightlink.SetDeviceAttribute  ("DataRate", StringValue (access_bandwidth));
+  rightlink.SetChannelAttribute ("Delay", StringValue (access_delay));
+  //set device controller
+  rightlink.SetHelpController(m_controller);
+
+  PointToPointDumbbellHelper d (nLeaf, leftlink,
+                                nLeaf, rightlink,
                                 bottleNeckLink);
+
+
+  Simulator::Schedule(Seconds(1),&NetDevice::SetAttribute,d.m_routerDevices.Get(0),"DataRate",StringValue("20Mbps"));
+  Simulator::Schedule(Seconds(1),&NetDevice::SetAttribute,d.m_routerDevices.Get(1),"DataRate",StringValue("20Mbps"));
+
+  Simulator::Schedule(Seconds(2),&NetDevice::SetAttribute,d.m_routerDevices.Get(0),"DataRate",StringValue("30Mbps"));
+  Simulator::Schedule(Seconds(2),&NetDevice::SetAttribute,d.m_routerDevices.Get(1),"DataRate",StringValue("30Mbps"));
+
+  Simulator::Schedule(Seconds(3),&NetDevice::SetAttribute,d.m_routerDevices.Get(0),"DataRate",StringValue("40Mbps"));
+  Simulator::Schedule(Seconds(3),&NetDevice::SetAttribute,d.m_routerDevices.Get(1),"DataRate",StringValue("40Mbps"));
+
+  Simulator::Schedule(Seconds(4),&NetDevice::SetAttribute,d.m_routerDevices.Get(0),"DataRate",StringValue("50Mbps"));
+  Simulator::Schedule(Seconds(4),&NetDevice::SetAttribute,d.m_routerDevices.Get(1),"DataRate",StringValue("50Mbps"));
+
+  Simulator::Schedule(Seconds(9),&NetDevice::SetAttribute,d.m_routerDevices.Get(0),"DataRate",StringValue("15Mbps"));
+  Simulator::Schedule(Seconds(9),&NetDevice::SetAttribute,d.m_routerDevices.Get(1),"DataRate",StringValue("15Mbps"));
+/*
+  Simulator::Schedule(Seconds(10),&NetDevice::SetAttribute,d.m_routerDevices.Get(0),"DataRate",StringValue("16Mbps"));
+  Simulator::Schedule(Seconds(10),&NetDevice::SetAttribute,d.m_routerDevices.Get(1),"DataRate",StringValue("16Mbps"));
+
+  Simulator::Schedule(Seconds(11),&NetDevice::SetAttribute,d.m_routerDevices.Get(0),"DataRate",StringValue("17Mbps"));
+  Simulator::Schedule(Seconds(11),&NetDevice::SetAttribute,d.m_routerDevices.Get(1),"DataRate",StringValue("17Mbps"));
+
+  Simulator::Schedule(Seconds(12),&NetDevice::SetAttribute,d.m_routerDevices.Get(0),"DataRate",StringValue("18Mbps"));
+  Simulator::Schedule(Seconds(12),&NetDevice::SetAttribute,d.m_routerDevices.Get(1),"DataRate",StringValue("18Mbps"));
+
+  Simulator::Schedule(Seconds(13),&NetDevice::SetAttribute,d.m_routerDevices.Get(0),"DataRate",StringValue("19Mbps"));
+  Simulator::Schedule(Seconds(13),&NetDevice::SetAttribute,d.m_routerDevices.Get(1),"DataRate",StringValue("19Mbps"));
+
+  Simulator::Schedule(Seconds(14),&NetDevice::SetAttribute,d.m_routerDevices.Get(0),"DataRate",StringValue("20Mbps"));
+  Simulator::Schedule(Seconds(14),&NetDevice::SetAttribute,d.m_routerDevices.Get(1),"DataRate",StringValue("20Mbps"));
+*/
+
 
   // Install IP stack
   InternetStackHelper stack;
@@ -235,7 +319,7 @@ int main (int argc, char *argv[])
 
   uint32_t size = static_cast<uint32_t>((std::min (access_b, bottle_b).GetBitRate () / 8) *
     ((access_d + bottle_d + access_d) * 2).GetSeconds ());
-
+  //std::cout << "the int is" << size <<  std::endl;
   Config::SetDefault ("ns3::PfifoFastQueueDisc::MaxSize",
                       QueueSizeValue (QueueSize (QueueSizeUnit::PACKETS, size / mtu_bytes)));
   Config::SetDefault ("ns3::CoDelQueueDisc::MaxSize",
@@ -270,6 +354,7 @@ int main (int argc, char *argv[])
   Address sinkLocalAddress (InetSocketAddress (Ipv4Address::GetAny (), port));
   PacketSinkHelper sinkHelper ("ns3::TcpSocketFactory", sinkLocalAddress);
   ApplicationContainer sinkApps;
+  
   for (uint32_t i = 0; i < d.RightCount (); ++i)
   {
     sinkHelper.SetAttribute ("Protocol", TypeIdValue (TcpSocketFactory::GetTypeId ()));
@@ -277,9 +362,12 @@ int main (int argc, char *argv[])
   }
   sinkApps.Start (Seconds (0.0));
   sinkApps.Stop  (Seconds (stop_time));
-
+  
   for (uint32_t i = 0; i < d.LeftCount (); ++i)
   {
+    //port = port+1;
+
+    /*
     // Create an on/off app sending packets to the left side
     AddressValue remoteAddress (InetSocketAddress (d.GetRightIpv4Address (i), port));
     Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue (tcp_adu_size));
@@ -287,12 +375,37 @@ int main (int argc, char *argv[])
     ftp.SetAttribute ("Remote", remoteAddress);
     ftp.SetAttribute ("SendSize", UintegerValue (tcp_adu_size));
     ftp.SetAttribute ("MaxBytes", UintegerValue (data_mbytes * 1000000));
+    */
+
+    uint32_t flowSize = MultipleFlows::gen_random_cdf (cdfTable);
+    std::cout << "flowsize: " << flowSize << std::endl;
+
+    std::ostringstream os;
+    //os << d.GetRightIpv4Address (i) << " " <<  port << " "  << d.GetLeftIpv4Address (i)  << " ";
+    //os << d.GetRightIpv4Address (i);
+    uint32_t m_tuple= (d.GetRightIpv4Address (i)).Get();
+
+    AddressValue remoteAddress (InetSocketAddress (d.GetRightIpv4Address (i), port));
+    Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue (tcp_adu_size));
+    MyOnOffHelper ftp ("ns3::TcpSocketFactory", Address ());
+    ftp.SetAttribute ("Remote", remoteAddress);
+    ftp.SetAttribute("DataRate",DataRateValue(access_bandwidth));
+    ftp.SetAttribute ("PacketSize", UintegerValue (tcp_adu_size));
+    ftp.SetAttribute ("MaxBytes", UintegerValue(flowSize));
+    ftp.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=200]"));
+    ftp.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
+    //ftp.SetAttribute("Interval",StringValue("ns3::ExponentialRandomVariable[Mean=3.14|Bound=0.0]"));
+    //ftp.SetAttribute("Interval",StringValue("ns3::UniformRandomVariable[Min=1|Max=2]"));
+    ftp.SetAttribute ("Interval", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
+    ftp.SetAttribute ("tuple", UintegerValue (m_tuple));
+
+    ftp.SetHelpController(m_controller);
 
     ApplicationContainer clientApp = ftp.Install (d.GetLeft (i));
     clientApp.Start (Seconds (start_time * i)); // Start after sink
     clientApp.Stop (Seconds (stop_time - 3)); // Stop before the sink
   }
-
+ 
   // Flow monitor
   FlowMonitorHelper flowHelper;
   if (flow_monitor)
@@ -306,10 +419,28 @@ int main (int argc, char *argv[])
     rxPkts.push_back(0);
     Ptr<PacketSink> pktSink = DynamicCast<PacketSink>(sinkApps.Get(i));
     pktSink->TraceConnectWithoutContext ("Rx", MakeBoundCallback (&CountRxPkts, i));
+    //uint32_t bytesReceived = pktSink->GetTotalRx();
+    //std::cout << "\tTotalRx: " << bytesReceived * 1e-6 * 8 << "Mb";
+    //std::cout << "\tTroughput: " << (bytesReceived * 1e-6 * 8) / 60 << "Mbps" << std::endl;
+    pktSink->TraceConnectWithoutContext("PhyRxDrop", MakeCallback (&RxDrop));
   }
 
   Simulator::Stop (Seconds (stop_time));
   Simulator::Run ();
+
+
+  // Count RX packets
+  for (uint32_t i = 0; i < d.RightCount (); ++i)
+  {
+    rxPkts.push_back(0);
+    Ptr<PacketSink> pktSink = DynamicCast<PacketSink>(sinkApps.Get(i));
+    //pktSink->TraceConnectWithoutContext ("Rx", MakeBoundCallback (&CountRxPkts, i));
+    uint32_t bytesReceived = pktSink->GetTotalRx();
+    std::cout << "\tTotalRx: " << bytesReceived * 1e-6 * 8 << "Mb";
+    std::cout << "\tTroughput: " << (bytesReceived * 1e-6 * 8) / 60 << "Mbps" << std::endl;
+    
+  }
+
 
   if (flow_monitor)
     {

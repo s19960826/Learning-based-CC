@@ -16,41 +16,41 @@ class TcpNewReno(TcpEventBased):
         socketUuid = obs[0]
         # TCP env type: event-based = 0 / time-based = 1
         envType = obs[1]
-        # sim time in us
-        simTime_us = obs[2]
-        # unique node ID
-        nodeId = obs[3]
         # current ssThreshold
-        ssThresh = obs[4]
+        ssThresh = obs[2]
         # current contention window size
-        cWnd = obs[5]
+        cWnd = obs[3]
         # segment size
-        segmentSize = obs[6]
+        segmentSize = obs[4]
         # number of acked segments
-        segmentsAcked = obs[7]
+        segmentsAcked = obs[5]
         # estimated bytes in flight
-        bytesInFlight  = obs[8]
+        bytesInFlight  = obs[6]
 
         new_cWnd = 1
         new_ssThresh = 1
-
+        
         # IncreaseWindow
         if (cWnd < ssThresh):
             # slow start
             if (segmentsAcked >= 1):
                 new_cWnd = cWnd + segmentSize
-
+        
         if (cWnd >= ssThresh):
             # congestion avoidance
             if (segmentsAcked > 0):
-                adder = 1.0 * (segmentSize * segmentSize) / cWnd;
+                adder = 1.0 * (segmentSize * segmentSize) / cWnd
                 adder = int(max (1.0, adder))
                 new_cWnd = cWnd + adder
+        
+        #if (cWnd >= ssThresh):
+         #  new_cWnd=cWnd
 
         # GetSsThresh
         new_ssThresh = int(max (2 * segmentSize, bytesInFlight / 2))
 
         # return actions
         actions = [new_ssThresh, new_cWnd]
+        
 
         return actions

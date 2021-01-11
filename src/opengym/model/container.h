@@ -103,6 +103,10 @@ public:
   }
 
   bool AddValue(T value);
+
+  //replace value
+  bool ReplaceValue(T value);
+
   T GetValue(uint32_t idx);
 
   bool SetData(std::vector<T> data);
@@ -224,6 +228,17 @@ OpenGymBoxContainer<T>::AddValue(T value)
   m_data.push_back(value);
   return true;
 }
+
+template <typename T>
+bool
+OpenGymBoxContainer<T>::ReplaceValue(T value)
+{
+  m_data.erase(m_data.begin()+15);
+  m_data.push_back(value);
+  return true;
+}
+
+
 
 template <typename T>
 T

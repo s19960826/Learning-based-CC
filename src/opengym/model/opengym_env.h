@@ -23,6 +23,7 @@
 #define OPENGYM_ENV_H
 
 #include "ns3/object.h"
+#include "ns3/control-decider.h"
 
 namespace ns3 {
 
@@ -37,6 +38,10 @@ public:
   virtual ~OpenGymEnv ();
 
   static TypeId GetTypeId ();
+
+  //set env controller
+  Ptr<ControlDecider> env_controller;
+  
 
   virtual Ptr<OpenGymSpace> GetActionSpace() = 0;
   virtual Ptr<OpenGymSpace> GetObservationSpace() = 0;

@@ -25,47 +25,51 @@
 #include "ns3/trace-source-accessor.h"
 #include "ns3/uinteger.h"
 #include "ns3/pointer.h"
-#include "point-to-point-net-device.h"
-#include "point-to-point-channel.h"
+#include "recv-net-device.h"
+#include "recv-channel.h"
 #include "ppp-header.h"
+
+#include "ns3/time-stamp-tag.h"
+#include "ns3/flow-id-tag.h"
+#include "ns3/address-tag.h"
 
 namespace ns3 {
 
-NS_LOG_COMPONENT_DEFINE ("PointToPointNetDevice");
+NS_LOG_COMPONENT_DEFINE ("RecvNetDevice");
 
-NS_OBJECT_ENSURE_REGISTERED (PointToPointNetDevice);
+NS_OBJECT_ENSURE_REGISTERED (RecvNetDevice);
 
 TypeId 
-PointToPointNetDevice::GetTypeId (void)
+RecvNetDevice::GetTypeId (void)
 {
-  static TypeId tid = TypeId ("ns3::PointToPointNetDevice")
+  static TypeId tid = TypeId ("ns3::RecvNetDevice")
     .SetParent<NetDevice> ()
     .SetGroupName ("PointToPoint")
-    .AddConstructor<PointToPointNetDevice> ()
+    .AddConstructor<RecvNetDevice> ()
     .AddAttribute ("Mtu", "The MAC-level Maximum Transmission Unit",
                    UintegerValue (DEFAULT_MTU),
-                   MakeUintegerAccessor (&PointToPointNetDevice::SetMtu,
-                                         &PointToPointNetDevice::GetMtu),
+                   MakeUintegerAccessor (&RecvNetDevice::SetMtu,
+                                         &RecvNetDevice::GetMtu),
                    MakeUintegerChecker<uint16_t> ())
     .AddAttribute ("Address", 
                    "The MAC address of this device.",
                    Mac48AddressValue (Mac48Address ("ff:ff:ff:ff:ff:ff")),
-                   MakeMac48AddressAccessor (&PointToPointNetDevice::m_address),
+                   MakeMac48AddressAccessor (&RecvNetDevice::m_address),
                    MakeMac48AddressChecker ())
     .AddAttribute ("DataRate", 
                    "The default data rate for point to point links",
                    DataRateValue (DataRate ("32768b/s")),
-                   MakeDataRateAccessor (&PointToPointNetDevice::m_bps),
+                   MakeDataRateAccessor (&RecvNetDevice::m_bps),
                    MakeDataRateChecker ())
     .AddAttribute ("ReceiveErrorModel", 
                    "The receiver error model used to simulate packet loss",
                    PointerValue (),
-                   MakePointerAccessor (&PointToPointNetDevice::m_receiveErrorModel),
+                   MakePointerAccessor (&RecvNetDevice::m_receiveErrorModel),
                    MakePointerChecker<ErrorModel> ())
     .AddAttribute ("InterframeGap", 
                    "The time to wait between packet (frame) transmissions",
                    TimeValue (Seconds (0.0)),
-                   MakeTimeAccessor (&PointToPointNetDevice::m_tInterframeGap),
+                   MakeTimeAccessor (&RecvNetDevice::m_tInterframeGap),
                    MakeTimeChecker ())
 
     //
@@ -75,7 +79,7 @@ PointToPointNetDevice::GetTypeId (void)
     .AddAttribute ("TxQueue", 
                    "A queue to use as the transmit queue in the device.",
                    PointerValue (),
-                   MakePointerAccessor (&PointToPointNetDevice::m_queue),
+                   MakePointerAccessor (&RecvNetDevice::m_queue),
                    MakePointerChecker<Queue<Packet> > ())
 
     //
@@ -85,33 +89,33 @@ PointToPointNetDevice::GetTypeId (void)
     .AddTraceSource ("MacTx", 
                      "Trace source indicating a packet has arrived "
                      "for transmission by this device",
-                     MakeTraceSourceAccessor (&PointToPointNetDevice::m_macTxTrace),
+                     MakeTraceSourceAccessor (&RecvNetDevice::m_macTxTrace),
                      "ns3::Packet::TracedCallback")
     .AddTraceSource ("MacTxDrop", 
                      "Trace source indicating a packet has been dropped "
                      "by the device before transmission",
-                     MakeTraceSourceAccessor (&PointToPointNetDevice::m_macTxDropTrace),
+                     MakeTraceSourceAccessor (&RecvNetDevice::m_macTxDropTrace),
                      "ns3::Packet::TracedCallback")
     .AddTraceSource ("MacPromiscRx", 
                      "A packet has been received by this device, "
                      "has been passed up from the physical layer "
                      "and is being forwarded up the local protocol stack.  "
                      "This is a promiscuous trace,",
-                     MakeTraceSourceAccessor (&PointToPointNetDevice::m_macPromiscRxTrace),
+                     MakeTraceSourceAccessor (&RecvNetDevice::m_macPromiscRxTrace),
                      "ns3::Packet::TracedCallback")
     .AddTraceSource ("MacRx", 
                      "A packet has been received by this device, "
                      "has been passed up from the physical layer "
                      "and is being forwarded up the local protocol stack.  "
                      "This is a non-promiscuous trace,",
-                     MakeTraceSourceAccessor (&PointToPointNetDevice::m_macRxTrace),
+                     MakeTraceSourceAccessor (&RecvNetDevice::m_macRxTrace),
                      "ns3::Packet::TracedCallback")
 #if 0
     // Not currently implemented for this device
     .AddTraceSource ("MacRxDrop", 
                      "Trace source indicating a packet was dropped "
                      "before being forwarded up the stack",
-                     MakeTraceSourceAccessor (&PointToPointNetDevice::m_macRxDropTrace),
+                     MakeTraceSourceAccessor (&RecvNetDevice::m_macRxDropTrace),
                      "ns3::Packet::TracedCallback")
 #endif
     //
@@ -121,35 +125,35 @@ PointToPointNetDevice::GetTypeId (void)
     .AddTraceSource ("PhyTxBegin", 
                      "Trace source indicating a packet has begun "
                      "transmitting over the channel",
-                     MakeTraceSourceAccessor (&PointToPointNetDevice::m_phyTxBeginTrace),
+                     MakeTraceSourceAccessor (&RecvNetDevice::m_phyTxBeginTrace),
                      "ns3::Packet::TracedCallback")
     .AddTraceSource ("PhyTxEnd", 
                      "Trace source indicating a packet has been "
                      "completely transmitted over the channel",
-                     MakeTraceSourceAccessor (&PointToPointNetDevice::m_phyTxEndTrace),
+                     MakeTraceSourceAccessor (&RecvNetDevice::m_phyTxEndTrace),
                      "ns3::Packet::TracedCallback")
     .AddTraceSource ("PhyTxDrop", 
                      "Trace source indicating a packet has been "
                      "dropped by the device during transmission",
-                     MakeTraceSourceAccessor (&PointToPointNetDevice::m_phyTxDropTrace),
+                     MakeTraceSourceAccessor (&RecvNetDevice::m_phyTxDropTrace),
                      "ns3::Packet::TracedCallback")
 #if 0
     // Not currently implemented for this device
     .AddTraceSource ("PhyRxBegin", 
                      "Trace source indicating a packet has begun "
                      "being received by the device",
-                     MakeTraceSourceAccessor (&PointToPointNetDevice::m_phyRxBeginTrace),
+                     MakeTraceSourceAccessor (&RecvNetDevice::m_phyRxBeginTrace),
                      "ns3::Packet::TracedCallback")
 #endif
     .AddTraceSource ("PhyRxEnd", 
                      "Trace source indicating a packet has been "
                      "completely received by the device",
-                     MakeTraceSourceAccessor (&PointToPointNetDevice::m_phyRxEndTrace),
+                     MakeTraceSourceAccessor (&RecvNetDevice::m_phyRxEndTrace),
                      "ns3::Packet::TracedCallback")
     .AddTraceSource ("PhyRxDrop", 
                      "Trace source indicating a packet has been "
                      "dropped by the device during reception",
-                     MakeTraceSourceAccessor (&PointToPointNetDevice::m_phyRxDropTrace),
+                     MakeTraceSourceAccessor (&RecvNetDevice::m_phyRxDropTrace),
                      "ns3::Packet::TracedCallback")
 
     //
@@ -160,19 +164,19 @@ PointToPointNetDevice::GetTypeId (void)
     .AddTraceSource ("Sniffer", 
                     "Trace source simulating a non-promiscuous packet sniffer "
                      "attached to the device",
-                     MakeTraceSourceAccessor (&PointToPointNetDevice::m_snifferTrace),
+                     MakeTraceSourceAccessor (&RecvNetDevice::m_snifferTrace),
                      "ns3::Packet::TracedCallback")
     .AddTraceSource ("PromiscSniffer", 
                      "Trace source simulating a promiscuous packet sniffer "
                      "attached to the device",
-                     MakeTraceSourceAccessor (&PointToPointNetDevice::m_promiscSnifferTrace),
+                     MakeTraceSourceAccessor (&RecvNetDevice::m_promiscSnifferTrace),
                      "ns3::Packet::TracedCallback")
   ;
   return tid;
 }
 
 
-PointToPointNetDevice::PointToPointNetDevice () 
+RecvNetDevice::RecvNetDevice () 
   :
     m_txMachineState (READY),
     m_channel (0),
@@ -182,13 +186,20 @@ PointToPointNetDevice::PointToPointNetDevice ()
   NS_LOG_FUNCTION (this);
 }
 
-PointToPointNetDevice::~PointToPointNetDevice ()
+RecvNetDevice::~RecvNetDevice ()
 {
   NS_LOG_FUNCTION (this);
 }
 
+//set device controller
+void 
+RecvNetDevice::SetDevController (Ptr<ControlDecider> controller)
+{
+  dev_controller = controller;
+}
+
 void
-PointToPointNetDevice::AddHeader (Ptr<Packet> p, uint16_t protocolNumber)
+RecvNetDevice::AddHeader (Ptr<Packet> p, uint16_t protocolNumber)
 {
   NS_LOG_FUNCTION (this << p << protocolNumber);
   PppHeader ppp;
@@ -197,7 +208,7 @@ PointToPointNetDevice::AddHeader (Ptr<Packet> p, uint16_t protocolNumber)
 }
 
 bool
-PointToPointNetDevice::ProcessHeader (Ptr<Packet> p, uint16_t& param)
+RecvNetDevice::ProcessHeader (Ptr<Packet> p, uint16_t& param)
 {
   NS_LOG_FUNCTION (this << p << param);
   PppHeader ppp;
@@ -207,7 +218,7 @@ PointToPointNetDevice::ProcessHeader (Ptr<Packet> p, uint16_t& param)
 }
 
 void
-PointToPointNetDevice::DoDispose ()
+RecvNetDevice::DoDispose ()
 {
   NS_LOG_FUNCTION (this);
   m_node = 0;
@@ -219,21 +230,21 @@ PointToPointNetDevice::DoDispose ()
 }
 
 void
-PointToPointNetDevice::SetDataRate (DataRate bps)
+RecvNetDevice::SetDataRate (DataRate bps)
 {
   NS_LOG_FUNCTION (this);
   m_bps = bps;
 }
 
 void
-PointToPointNetDevice::SetInterframeGap (Time t)
+RecvNetDevice::SetInterframeGap (Time t)
 {
   NS_LOG_FUNCTION (this << t.GetSeconds ());
   m_tInterframeGap = t;
 }
 
 bool
-PointToPointNetDevice::TransmitStart (Ptr<Packet> p)
+RecvNetDevice::TransmitStart (Ptr<Packet> p)
 {
   NS_LOG_FUNCTION (this << p);
   NS_LOG_LOGIC ("UID is " << p->GetUid () << ")");
@@ -252,7 +263,7 @@ PointToPointNetDevice::TransmitStart (Ptr<Packet> p)
   Time txCompleteTime = txTime + m_tInterframeGap;
 
   NS_LOG_LOGIC ("Schedule TransmitCompleteEvent in " << txCompleteTime.GetSeconds () << "sec");
-  Simulator::Schedule (txCompleteTime, &PointToPointNetDevice::TransmitComplete, this);
+  Simulator::Schedule (txCompleteTime, &RecvNetDevice::TransmitComplete, this);
 
   bool result = m_channel->TransmitStart (p, this, txTime);
   if (result == false)
@@ -263,7 +274,7 @@ PointToPointNetDevice::TransmitStart (Ptr<Packet> p)
 }
 
 void
-PointToPointNetDevice::TransmitComplete (void)
+RecvNetDevice::TransmitComplete (void)
 {
   NS_LOG_FUNCTION (this);
 
@@ -276,7 +287,7 @@ PointToPointNetDevice::TransmitComplete (void)
   NS_ASSERT_MSG (m_txMachineState == BUSY, "Must be BUSY if transmitting");
   m_txMachineState = READY;
 
-  NS_ASSERT_MSG (m_currentPkt != 0, "PointToPointNetDevice::TransmitComplete(): m_currentPkt zero");
+  NS_ASSERT_MSG (m_currentPkt != 0, "RecvNetDevice::TransmitComplete(): m_currentPkt zero");
 
   m_phyTxEndTrace (m_currentPkt);
   m_currentPkt = 0;
@@ -297,7 +308,7 @@ PointToPointNetDevice::TransmitComplete (void)
 }
 
 bool
-PointToPointNetDevice::Attach (Ptr<PointToPointChannel> ch)
+RecvNetDevice::Attach (Ptr<RecvChannel> ch)
 {
   NS_LOG_FUNCTION (this << &ch);
 
@@ -315,21 +326,21 @@ PointToPointNetDevice::Attach (Ptr<PointToPointChannel> ch)
 }
 
 void
-PointToPointNetDevice::SetQueue (Ptr<Queue<Packet> > q)
+RecvNetDevice::SetQueue (Ptr<Queue<Packet> > q)
 {
   NS_LOG_FUNCTION (this << q);
   m_queue = q;
 }
 
 void
-PointToPointNetDevice::SetReceiveErrorModel (Ptr<ErrorModel> em)
+RecvNetDevice::SetReceiveErrorModel (Ptr<ErrorModel> em)
 {
   NS_LOG_FUNCTION (this << em);
   m_receiveErrorModel = em;
 }
 
 void
-PointToPointNetDevice::Receive (Ptr<Packet> packet)
+RecvNetDevice::Receive (Ptr<Packet> packet)
 {
   NS_LOG_FUNCTION (this << packet);
   uint16_t protocol = 0;
@@ -349,10 +360,51 @@ PointToPointNetDevice::Receive (Ptr<Packet> packet)
       // device because it is so simple, but this is not usually the case in
       // more complicated devices.
       //
+      //std::cout << NetDevice::PACKET_HOST << std::endl; 
+   
+      //deserilize time tag(GetMilliSeconds())
+      TimestampTag timestamp;
+      AddressTag addressTag;
+      if (packet->FindFirstMatchingByteTag (timestamp))
+      {
+        if (packet->FindFirstMatchingByteTag (addressTag)) 
+        {
+          Time sd = timestamp.GetTimestamp ();
+	        Time rv = Simulator::Now();
+          uint32_t m_address = addressTag.GetAddress();
+	        dev_controller->SendTime(m_address, sd.GetMicroSeconds());
+          dev_controller->RecvTime(m_address, rv.GetMicroSeconds());
+        }
+      }
+	  //dev_controller->RecvTime(rv.GetMicroSeconds());
+	  //dev_controller->DelayTime(rv.GetMicroSeconds()-sd.GetMicroSeconds());
+	  //dev_controller->RecvCount(rv.GetMicroSeconds());
+          //std::cout << "recv time is" << Now().GetSeconds() << std::endl;
+
+      /*	  
+      //deserilize address tag
+      FlowIdTag flowtag;
+      if (packet->FindFirstMatchingByteTag (flowtag))
+        {
+         if (flowtag.GetFlowId () == m_flowIdA)
+        {
+          send_time_A.push_back(sd.GetMicroSeconds());
+	  recv_time_A.push_back(rv.GetMicroSeconds());
+          delay_time_A.push_back(rv.GetMicroSeconds()-sd.GetMicroSeconds());
+	}
+	 else
+	{
+	  send_time_B.push_back(sd.GetMicroSeconds());
+          recv_time_B.push_back(rv.GetMicroSeconds());
+          delay_time_B.push_back(rv.GetMicroSeconds()-sd.GetMicroSeconds());
+	}
+       }
+       */
+      
       m_snifferTrace (packet);
       m_promiscSnifferTrace (packet);
       m_phyRxEndTrace (packet);
-
+      //std::cout << "recv:" << Now().GetMicroSeconds() << std::endl;
       //
       // Trace sinks will expect complete packets, not packets without some of the
       // headers.
@@ -360,14 +412,12 @@ PointToPointNetDevice::Receive (Ptr<Packet> packet)
       Ptr<Packet> originalPacket = packet->Copy ();
 
       //
-      // Strip off the point-to-point protocol header and forward this packet
+      // Strip off the point-m_metadatato-point protocol header and forward this packet
       // up the protocol stack.  Since this is a simple point-to-point link,
       // there is no difference in what the promisc callback sees and what the
       // normal receive callback sees.
       //
       ProcessHeader (packet, protocol);
-      //std::cout << "recv: " << Now().GetMicroSeconds() << std::endl;
-      //std::cout << ".................................." << std::endl;
 
       if (!m_promiscCallback.IsNull ())
         {
@@ -381,14 +431,14 @@ PointToPointNetDevice::Receive (Ptr<Packet> packet)
 }
 
 Ptr<Queue<Packet> >
-PointToPointNetDevice::GetQueue (void) const
+RecvNetDevice::GetQueue (void) const
 { 
   NS_LOG_FUNCTION (this);
   return m_queue;
 }
 
 void
-PointToPointNetDevice::NotifyLinkUp (void)
+RecvNetDevice::NotifyLinkUp (void)
 {
   NS_LOG_FUNCTION (this);
   m_linkUp = true;
@@ -396,20 +446,20 @@ PointToPointNetDevice::NotifyLinkUp (void)
 }
 
 void
-PointToPointNetDevice::SetIfIndex (const uint32_t index)
+RecvNetDevice::SetIfIndex (const uint32_t index)
 {
   NS_LOG_FUNCTION (this);
   m_ifIndex = index;
 }
 
 uint32_t
-PointToPointNetDevice::GetIfIndex (void) const
+RecvNetDevice::GetIfIndex (void) const
 {
   return m_ifIndex;
 }
 
 Ptr<Channel>
-PointToPointNetDevice::GetChannel (void) const
+RecvNetDevice::GetChannel (void) const
 {
   return m_channel;
 }
@@ -421,27 +471,27 @@ PointToPointNetDevice::GetChannel (void) const
 // clients get and set the address, but simply ignore them.
 
 void
-PointToPointNetDevice::SetAddress (Address address)
+RecvNetDevice::SetAddress (Address address)
 {
   NS_LOG_FUNCTION (this << address);
   m_address = Mac48Address::ConvertFrom (address);
 }
 
 Address
-PointToPointNetDevice::GetAddress (void) const
+RecvNetDevice::GetAddress (void) const
 {
   return m_address;
 }
 
 bool
-PointToPointNetDevice::IsLinkUp (void) const
+RecvNetDevice::IsLinkUp (void) const
 {
   NS_LOG_FUNCTION (this);
   return m_linkUp;
 }
 
 void
-PointToPointNetDevice::AddLinkChangeCallback (Callback<void> callback)
+RecvNetDevice::AddLinkChangeCallback (Callback<void> callback)
 {
   NS_LOG_FUNCTION (this);
   m_linkChangeCallbacks.ConnectWithoutContext (callback);
@@ -452,7 +502,7 @@ PointToPointNetDevice::AddLinkChangeCallback (Callback<void> callback)
 // all of the devices on the network.
 //
 bool
-PointToPointNetDevice::IsBroadcast (void) const
+RecvNetDevice::IsBroadcast (void) const
 {
   NS_LOG_FUNCTION (this);
   return true;
@@ -464,54 +514,53 @@ PointToPointNetDevice::IsBroadcast (void) const
 // broadcast address, so we make up something reasonable.
 //
 Address
-PointToPointNetDevice::GetBroadcast (void) const
+RecvNetDevice::GetBroadcast (void) const
 {
   NS_LOG_FUNCTION (this);
   return Mac48Address ("ff:ff:ff:ff:ff:ff");
 }
 
 bool
-PointToPointNetDevice::IsMulticast (void) const
+RecvNetDevice::IsMulticast (void) const
 {
   NS_LOG_FUNCTION (this);
   return true;
 }
 
 Address
-PointToPointNetDevice::GetMulticast (Ipv4Address multicastGroup) const
+RecvNetDevice::GetMulticast (Ipv4Address multicastGroup) const
 {
   NS_LOG_FUNCTION (this);
   return Mac48Address ("01:00:5e:00:00:00");
 }
 
 Address
-PointToPointNetDevice::GetMulticast (Ipv6Address addr) const
+RecvNetDevice::GetMulticast (Ipv6Address addr) const
 {
   NS_LOG_FUNCTION (this << addr);
   return Mac48Address ("33:33:00:00:00:00");
 }
 
 bool
-PointToPointNetDevice::IsPointToPoint (void) const
+RecvNetDevice::IsPointToPoint (void) const
 {
   NS_LOG_FUNCTION (this);
   return true;
 }
 
 bool
-PointToPointNetDevice::IsBridge (void) const
+RecvNetDevice::IsBridge (void) const
 {
   NS_LOG_FUNCTION (this);
   return false;
 }
 
 bool
-PointToPointNetDevice::Send (
+RecvNetDevice::Send (
   Ptr<Packet> packet, 
   const Address &dest, 
   uint16_t protocolNumber)
-{ 
-  //std::cout << "this is" << Now().GetMicroSeconds() << std::endl;  
+{
   NS_LOG_FUNCTION (this << packet << dest << protocolNumber);
   NS_LOG_LOGIC ("p=" << packet << ", dest=" << &dest);
   NS_LOG_LOGIC ("UID is " << packet->GetUid ());
@@ -533,7 +582,6 @@ PointToPointNetDevice::Send (
   AddHeader (packet, protocolNumber);
 
   m_macTxTrace (packet);
-  //std::cout << "send: " << Now().GetMicroSeconds() << std::endl;
 
   //
   // We should enqueue and dequeue the packet to hit the tracing hooks.
@@ -561,7 +609,7 @@ PointToPointNetDevice::Send (
 }
 
 bool
-PointToPointNetDevice::SendFrom (Ptr<Packet> packet, 
+RecvNetDevice::SendFrom (Ptr<Packet> packet, 
                                  const Address &source, 
                                  const Address &dest, 
                                  uint16_t protocolNumber)
@@ -571,53 +619,53 @@ PointToPointNetDevice::SendFrom (Ptr<Packet> packet,
 }
 
 Ptr<Node>
-PointToPointNetDevice::GetNode (void) const
+RecvNetDevice::GetNode (void) const
 {
   return m_node;
 }
 
 void
-PointToPointNetDevice::SetNode (Ptr<Node> node)
+RecvNetDevice::SetNode (Ptr<Node> node)
 {
   NS_LOG_FUNCTION (this);
   m_node = node;
 }
 
 bool
-PointToPointNetDevice::NeedsArp (void) const
+RecvNetDevice::NeedsArp (void) const
 {
   NS_LOG_FUNCTION (this);
   return false;
 }
 
 void
-PointToPointNetDevice::SetReceiveCallback (NetDevice::ReceiveCallback cb)
+RecvNetDevice::SetReceiveCallback (NetDevice::ReceiveCallback cb)
 {
   m_rxCallback = cb;
 }
 
 void
-PointToPointNetDevice::SetPromiscReceiveCallback (NetDevice::PromiscReceiveCallback cb)
+RecvNetDevice::SetPromiscReceiveCallback (NetDevice::PromiscReceiveCallback cb)
 {
   m_promiscCallback = cb;
 }
 
 bool
-PointToPointNetDevice::SupportsSendFrom (void) const
+RecvNetDevice::SupportsSendFrom (void) const
 {
   NS_LOG_FUNCTION (this);
   return false;
 }
 
 void
-PointToPointNetDevice::DoMpiReceive (Ptr<Packet> p)
+RecvNetDevice::DoMpiReceive (Ptr<Packet> p)
 {
   NS_LOG_FUNCTION (this << p);
   Receive (p);
 }
 
 Address 
-PointToPointNetDevice::GetRemote (void) const
+RecvNetDevice::GetRemote (void) const
 {
   NS_LOG_FUNCTION (this);
   NS_ASSERT (m_channel->GetNDevices () == 2);
@@ -635,7 +683,7 @@ PointToPointNetDevice::GetRemote (void) const
 }
 
 bool
-PointToPointNetDevice::SetMtu (uint16_t mtu)
+RecvNetDevice::SetMtu (uint16_t mtu)
 {
   NS_LOG_FUNCTION (this << mtu);
   m_mtu = mtu;
@@ -643,14 +691,14 @@ PointToPointNetDevice::SetMtu (uint16_t mtu)
 }
 
 uint16_t
-PointToPointNetDevice::GetMtu (void) const
+RecvNetDevice::GetMtu (void) const
 {
   NS_LOG_FUNCTION (this);
   return m_mtu;
 }
 
 uint16_t
-PointToPointNetDevice::PppToEther (uint16_t proto)
+RecvNetDevice::PppToEther (uint16_t proto)
 {
   NS_LOG_FUNCTION_NOARGS();
   switch(proto)
@@ -663,7 +711,7 @@ PointToPointNetDevice::PppToEther (uint16_t proto)
 }
 
 uint16_t
-PointToPointNetDevice::EtherToPpp (uint16_t proto)
+RecvNetDevice::EtherToPpp (uint16_t proto)
 {
   NS_LOG_FUNCTION_NOARGS();
   switch(proto)
